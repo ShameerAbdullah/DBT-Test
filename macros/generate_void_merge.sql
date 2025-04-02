@@ -99,8 +99,7 @@ USING (
     FROM void_sales void
     LEFT JOIN ADLAB_DEV.WORKSPACE.SALES_REPORTING_VIEW sales
         ON void.STORE_ITEM_ID = sales.STORE_ITEM_ID
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY void.STORE_ITEM_ID
-                               ORDER BY void.as_of_date DESC) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY void.STORE_ITEM_ID ORDER BY void.as_of_date DESC) = 1
 ) S
 ON DATE(T.AS_OF_DATE) = DATE(S.AS_OF_DATE)
 AND T.STORE_ITEM_ID = S.STORE_ITEM_ID
@@ -124,42 +123,17 @@ WHEN MATCHED THEN
         T.UPDATE_DTTM = CURRENT_TIMESTAMP()
 WHEN NOT MATCHED THEN
     INSERT (
-        AS_OF_DATE,
-        RETAIL_CHAIN_NAME,
-        RETAIL_STORE_ID,
-        STORE_ZIP_CD,
-        STORE_ITEM_ID,
-        POPPI_ITEM_ID,
-        PLANOGRAM_START_DATE,
-        DIVISION_NUMBER,
-        STORE_NUMBER,
-        ADDRESS,
-        "1-WEEK-VOID",
-        "2-WEEK-VOID",
-        "3-WEEK-VOID",
-        "4-WEEK-VOID",
-        DAYS_SINCE_LAST_SOLD,
-        CREATE_DTTM,
-        UPDATE_DTTM
+        AS_OF_DATE, RETAIL_CHAIN_NAME, RETAIL_STORE_ID, STORE_ZIP_CD,
+        STORE_ITEM_ID, POPPI_ITEM_ID, PLANOGRAM_START_DATE, DIVISION_NUMBER,
+        STORE_NUMBER, ADDRESS, "1-WEEK-VOID", "2-WEEK-VOID", "3-WEEK-VOID", 
+        "4-WEEK-VOID", DAYS_SINCE_LAST_SOLD, CREATE_DTTM, UPDATE_DTTM
     )
     VALUES (
-        S.AS_OF_DATE,
-        S.RETAIL_CHAIN_NAME,
-        S.STORE_ID,
-        S.STORE_ZIP,
-        S.STORE_ITEM_ID,
-        S.poppi_item_id,
-        S.PLANOGRAM_START_DATE,
-        S.FORMATTED_CHAIN_DIVISION_CODE,
-        S.FORMATTED_CHAIN_STORE_NUMBER,
-        S.address,
-        S.one_week_void,
-        S.two_week_void,
-        S.three_week_void,
-        S.four_week_void,
-        S.days_since_last_sold,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
+        S.AS_OF_DATE, S.RETAIL_CHAIN_NAME, S.STORE_ID, S.STORE_ZIP,
+        S.STORE_ITEM_ID, S.poppi_item_id, S.PLANOGRAM_START_DATE, 
+        S.FORMATTED_CHAIN_DIVISION_CODE, S.FORMATTED_CHAIN_STORE_NUMBER, 
+        S.address, S.one_week_void, S.two_week_void, S.three_week_void,
+        S.four_week_void, S.days_since_last_sold, CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
     )
 {% endset %}
 {{ return(sql) }}

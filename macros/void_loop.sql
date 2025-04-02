@@ -1,5 +1,4 @@
-% macro run_void_merge_loop() %}
-
+{% macro run_void_merge_loop() %}
 {% set dates_query %}
     WITH TopDates AS (
         SELECT reporting_date
@@ -17,9 +16,8 @@
 {% set results = run_query(dates_query).columns[0].values() %}
 
 {% for date in results %}
-    {% set sql = generate_void_merge_sql(date) %}
     {{ log("Running MERGE for reporting_date: " ~ date, info=True) }}
+    {% set sql = generate_void_merge_sql(date) %}
     {% do run_query(sql) %}
 {% endfor %}
-
 {% endmacro %}
