@@ -1,16 +1,11 @@
 {% macro run_void_merge_loop() %}
 {% set dates_query %}
-    WITH TopDates AS (
-        SELECT reporting_date
-        FROM ADLAB_DEV.WORKSPACE.SALES_REPORTING_VIEW
-        GROUP BY reporting_date
-        ORDER BY reporting_date DESC
-        LIMIT 5
-    )
     SELECT reporting_date
-    FROM TopDates
-    WHERE reporting_date <> (SELECT MAX(reporting_date) FROM TopDates)
+    FROM ADLAB_DEV.WORKSPACE.SALES_REPORTING_VIEW
+    WHERE reporting_date < DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '1 day' 
+    GROUP BY reporting_date
     ORDER BY reporting_date DESC
+    LIMIT 4
 {% endset %}
 
 {% set results = run_query(dates_query).columns[0].values() %}
