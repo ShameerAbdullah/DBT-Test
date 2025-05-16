@@ -15,4 +15,7 @@
     {% set sql = generate_void_merge_sql(date) %}
     {% do run_query(sql) %}
 {% endfor %}
+
+{{ void_lost_sales() }}
+
 {% endmacro %}

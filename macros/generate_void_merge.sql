@@ -1,6 +1,6 @@
 {% macro generate_void_merge_sql(reporting_date) %}
 {% set sql %}
-MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LATESTFILE T
+MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LOST_SALES T
 USING (
     WITH LatestPlanoStartDate AS (
         SELECT
