@@ -1,7 +1,7 @@
 {% macro void_lost_sales() %}
 
 {% set merge_query %}
-    MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LOST_SALES target
+    MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LOST_SALES_V1 target
     USING (
         WITH AVG_SALES_CHAIN AS (
             SELECT 
@@ -14,7 +14,7 @@
                     WHEN (SUM(UNIT_SALES) / COUNT(DISTINCT STORE_ID)) - FLOOR(SUM(UNIT_SALES) / COUNT(DISTINCT STORE_ID)) < 0.5 
                     THEN FLOOR(SUM(UNIT_SALES) / COUNT(DISTINCT STORE_ID))
                     ELSE CEIL(SUM(UNIT_SALES) / COUNT(DISTINCT STORE_ID))
-                END AS AVG_SALE
+                END AS EXPECTED_LOST_QUANTITY
             FROM ADLAB_DEV.WORKSPACE.SALES_REPORTING_VIEW
             WHERE UNIT_SALES > 0
             GROUP BY 1, 2, 3
@@ -27,7 +27,7 @@
         VOID_WITH_SALES AS (
             SELECT 
                 VOID.*,
-                AVG_SALES.AVG_SALE
+                AVG_SALES.EXPECTED_LOST_QUANTITY
             FROM VOID
             INNER JOIN AVG_SALES_CHAIN AVG_SALES
                 ON VOID.RETAIL_CHAIN_NAME = AVG_SALES.CHAIN
@@ -46,7 +46,7 @@
         RECURSIVE_COMM_SALE AS (
             SELECT 
                 o.*,
-                CASE WHEN "4-WEEK-VOID" = 1 THEN AVG_SALE ELSE 0 END AS COMM_SALE
+                CASE WHEN "4-WEEK-VOID" = 1 THEN EXPECTED_LOST_QUANTITY ELSE 0 END AS COMM_LOST_QUANTITY
             FROM ORDERED o
             WHERE RN = 1
             
@@ -55,9 +55,9 @@
             SELECT 
                 curr.*,
                 CASE 
-                    WHEN curr."4-WEEK-VOID" = 1 THEN prev.COMM_SALE + curr.AVG_SALE
+                    WHEN curr."4-WEEK-VOID" = 1 THEN prev.COMM_LOST_QUANTITY + curr.EXPECTED_LOST_QUANTITY
                     ELSE 0
-                END AS COMM_SALE
+                END AS COMM_LOST_QUANTITY
             FROM ORDERED curr
             JOIN RECURSIVE_COMM_SALE prev
               ON curr.RN = prev.RN + 1
@@ -83,10 +83,12 @@
             R."4-WEEK-VOID",
             R.DAYS_SINCE_LAST_SOLD,
             R.WEEKS_SINCE_LAST_SOLD,
-            R.AVG_SALE,
-            R.COMM_SALE,
-            ROUND(R.COMM_SALE*P.CASE_EQUIVALENT_144OZ,2) AS COMM_SALE_144OZ,
-            ROUND(COMM_SALE_144OZ*12.56,2) AS COMM_DOLLARS_LOST_SALES
+            R.EXPECTED_LOST_QUANTITY,
+            ROUND((R.EXPECTED_LOST_QUANTITY * P.CASE_EQUIVALENT_144OZ) * 12.56, 2) AS EXPECTED_DOLLAR_LOST_SALES,
+            ROUND(R."2-WEEK-VOID" * (R.EXPECTED_LOST_QUANTITY * P.CASE_EQUIVALENT_144OZ * 12.56), 2) AS "2-WEEK-LOST-SALES",
+            ROUND(R."4-WEEK-VOID" * (R.EXPECTED_LOST_QUANTITY * P.CASE_EQUIVALENT_144OZ * 12.56), 2) AS "4-WEEK-LOST-SALES",
+            R.COMM_LOST_QUANTITY,
+            ROUND((R.COMM_LOST_QUANTITY*P.CASE_EQUIVALENT_144OZ)*12.56,2) AS COMM_DOLLARS_LOST_SALES
         FROM RECURSIVE_COMM_SALE R
         LEFT JOIN POPPI_BI.CORE.DIM_SCANNED_PRODUCTS P 
             ON R.POPPI_ITEM_ID = P.ITEM_CODE
@@ -111,24 +113,28 @@
             target."4-WEEK-VOID" = source."4-WEEK-VOID",
             target.DAYS_SINCE_LAST_SOLD = source.DAYS_SINCE_LAST_SOLD,
             target.WEEKS_SINCE_LAST_SOLD = source.WEEKS_SINCE_LAST_SOLD,
-            target.AVG_SALE = source.AVG_SALE,
-            target.COMM_SALE = source.COMM_SALE,
-            target.COMM_SALE_144OZ = source.COMM_SALE_144OZ,
+            target.EXPECTED_LOST_QUANTITY = source.EXPECTED_LOST_QUANTITY,
+            target.EXPECTED_DOLLAR_LOST_SALES = source.EXPECTED_DOLLAR_LOST_SALES,
+            target."2-WEEK-LOST-SALES" = source."2-WEEK-LOST-SALES",
+            target."4-WEEK-LOST-SALES" = source."4-WEEK-LOST-SALES",
+            target.COMM_LOST_QUANTITY = source.COMM_LOST_QUANTITY,
             target.COMM_DOLLARS_LOST_SALES = source.COMM_DOLLARS_LOST_SALES
     WHEN NOT MATCHED THEN
         INSERT (
             AS_OF_DATE, RETAIL_CHAIN_NAME, RETAIL_STORE_ID, STORE_ZIP_CD, STORE_ITEM_ID, 
             POPPI_ITEM_ID, ITEM_CODE, PLANOGRAM_START_DATE, DIVISION_NUMBER, STORE_NUMBER, 
             ADDRESS, "1-WEEK-VOID", "2-WEEK-VOID", "3-WEEK-VOID", "4-WEEK-VOID", 
-            DAYS_SINCE_LAST_SOLD, WEEKS_SINCE_LAST_SOLD, AVG_SALE, COMM_SALE, 
-            COMM_SALE_144OZ, COMM_DOLLARS_LOST_SALES
+            DAYS_SINCE_LAST_SOLD, WEEKS_SINCE_LAST_SOLD, EXPECTED_LOST_QUANTITY, 
+            EXPECTED_DOLLAR_LOST_SALES, "2-WEEK-LOST-SALES", "4-WEEK-LOST-SALES",
+            COMM_LOST_QUANTITY, COMM_DOLLARS_LOST_SALES
         )
         VALUES (
             source.AS_OF_DATE, source.RETAIL_CHAIN_NAME, source.RETAIL_STORE_ID, source.STORE_ZIP_CD, 
             source.STORE_ITEM_ID, source.POPPI_ITEM_ID, source.ITEM_CODE, source.PLANOGRAM_START_DATE, 
             source.DIVISION_NUMBER, source.STORE_NUMBER, source.ADDRESS, source."1-WEEK-VOID", 
             source."2-WEEK-VOID", source."3-WEEK-VOID", source."4-WEEK-VOID", source.DAYS_SINCE_LAST_SOLD, 
-            source.WEEKS_SINCE_LAST_SOLD, source.AVG_SALE, source.COMM_SALE, source.COMM_SALE_144OZ, 
+            source.WEEKS_SINCE_LAST_SOLD, source.EXPECTED_LOST_QUANTITY, source.EXPECTED_DOLLAR_LOST_SALES,
+            source."2-WEEK-LOST-SALES", source."4-WEEK-LOST-SALES", source.COMM_LOST_QUANTITY,
             source.COMM_DOLLARS_LOST_SALES
         )
 {% endset %}
