@@ -1,7 +1,7 @@
 {% macro void_lost_sales() %}
 
 {% set merge_query %}
-    MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LOST_SALES_V1 target
+    MERGE INTO ADLAB_DEV.WORKSPACE.VOID_HISTORICAL_LOST_SALES target
     USING (
         WITH AVG_SALES_CHAIN AS (
             SELECT 
